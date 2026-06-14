@@ -1,0 +1,42 @@
+name: 一键同步上游更新
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'  # 每周自动检查一次
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: 添加上游仓库
+        run: |
+          git remote add upstream https://github.com/whale-Yd00/freeapp.git 2>/dev/null || true
+          git fetch upstream
+
+      - name: 合并上游更新
+        run: |
+          git merge upstream/main --no-edit --allow-unrelated-histories || echo "无更新或需要手动处理冲突"
+
+      - name: 重新同步 iOS 平台
+        run: |
+          npm install
+          npx cap sync ios
+
+      - name: 推送到 GitHub
+        run: git push origin main
+
+      - name: 重新部署 Pages
+        run: |
+          git subtree push --prefix www origin gh-pages 2>/dev/null || \
+          (git subtree split --prefix www -b gh-pages-tmp && \
+           git push origin gh-pages-tmp:gh-pages --force && \
+           git branch -D gh-pages-tmp)
