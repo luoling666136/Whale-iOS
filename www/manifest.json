@@ -1,4 +1,11 @@
 {
+  "name": "玄鲸 / Whale 小手机",
+  "short_name": "Whale",
+  "start_url": "/Whale-iOS/index.html",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "description": "AI 角色扮演与情感陪伴应用",
   "icons": [
     {
       "src": "../icons/icon-48.webp",

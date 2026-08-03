@@ -1,0 +1,83 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - name: Build iOS Archive
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath $PWD/build/App.xcarchive \
+            archive \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Export IPA (unsigned)
+        run: |
+          cd ios/App
+          mkdir -p export
+          cat > export/ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>development</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath $PWD/build/App.xcarchive \
+            -exportPath $PWD/export/ipa \
+            -exportOptionsPlist $PWD/export/ExportOptions.plist \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_ALLOWED=NO || true
+
+      - name: Find IPA
+        run: |
+          echo "Looking for IPA..."
+          find ios/App/export -name "*.ipa" 2>/dev/null || echo "No IPA found via export, creating manually"
+          # If export failed (unsigned), create a simple wrapper
+          if [ ! -f ios/App/export/ipa/*.ipa ]; then
+            echo "Creating unsigned IPA for AltStore..."
+            mkdir -p ios/App/export/ipa/Payload
+            cp -r ios/App/build/App.xcarchive/Products/Applications/*.app ios/App/export/ipa/Payload/
+            cd ios/App/export/ipa
+            zip -r App.ipa Payload/
+          fi
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Whale-IPA
+          path: ios/App/export/ipa/*.ipa
+          if-no-files-found: error

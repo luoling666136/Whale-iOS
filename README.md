@@ -10,6 +10,8 @@
 ![Capacitor](https://img.shields.io/badge/Capacitor-Android-blue)
 ![Local First](https://img.shields.io/badge/Local--first-Privacy--oriented-blue)
   
+**来源**：本仓库基于 [whale-Yd00/freeapp](https://github.com/whale-Yd00/freeapp) 二次部署，仅添加 iOS 平台支持与 GitHub Pages 部署配置。原作者为 [whale-Yd00](https://github.com/whale-Yd00)，感谢原作者的贡献。
+
 **声明更新日期**：2026-05-09  
 **项目性质**：本项目仅供技术学习、学术研究、产品形态探索与开源交流使用。  
 **For educational and research purposes only.**

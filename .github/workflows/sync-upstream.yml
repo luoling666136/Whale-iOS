@@ -1,0 +1,59 @@
+name: 一键同步上游更新
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'  # 每周自动检查一次
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: 添加上游仓库并获取更新
+        run: |
+          git remote add upstream https://github.com/whale-Yd00/freeapp.git 2>/dev/null || true
+          git fetch upstream
+
+      - name: 检查是否有更新
+        id: check-update
+        run: |
+          BEHIND=$(git rev-list --count main..upstream/main 2>/dev/null || echo "0")
+          echo "上游新提交数: $BEHIND"
+          echo "has_update=$([ "$BEHIND" -gt 0 ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+
+      - name: 合并上游更新
+        if: steps.check-update.outputs.has_update == 'true'
+        id: merge
+        run: |
+          if git merge upstream/main --no-edit --allow-unrelated-histories 2>&1; then
+            echo "merge_status=ok" >> $GITHUB_OUTPUT
+          else
+            CONFLICTS=$(git diff --name-only --diff-filter=U 2>/dev/null | wc -l)
+            echo "❌ 合并失败，有 $CONFLICTS 个文件冲突需要手动解决"
+            echo "冲突文件: $(git diff --name-only --diff-filter=U | tr '\n' ' ')"
+            echo "merge_status=conflict" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: 重新生成依赖
+        if: steps.merge.outputs.merge_status == 'ok'
+        run: npm install
+
+      - name: 推送到 GitHub
+        if: steps.merge.outputs.merge_status == 'ok'
+        run: git push origin main
+
+      - name: 部署 GitHub Pages
+        if: steps.merge.outputs.merge_status == 'ok'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: www
