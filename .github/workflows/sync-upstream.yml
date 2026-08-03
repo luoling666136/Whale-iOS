@@ -68,9 +68,9 @@ jobs:
         if: steps.merge.outputs.merge_status == 'ok'
         run: git push origin main
 
-      - name: 部署 GitHub Pages
+      - name: 同步 www 到 gh-pages 分支（GitHub 会自动重新部署）
         if: steps.merge.outputs.merge_status == 'ok'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: www
+        run: |
+          git subtree split --prefix www -b gh-pages-sync 2>/dev/null
+          git push origin gh-pages-sync:gh-pages --force
+          git branch -D gh-pages-sync
