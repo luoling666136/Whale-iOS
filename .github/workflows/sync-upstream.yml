@@ -33,14 +33,31 @@ jobs:
         if: steps.check-update.outputs.has_update == 'true'
         id: merge
         run: |
-          if git merge upstream/main --no-edit --allow-unrelated-histories 2>&1; then
+          if git merge upstream/main --no-edit 2>&1; then
+            echo "✅ 合并成功"
             echo "merge_status=ok" >> $GITHUB_OUTPUT
           else
-            CONFLICTS=$(git diff --name-only --diff-filter=U 2>/dev/null | wc -l)
-            echo "❌ 合并失败，有 $CONFLICTS 个文件冲突需要手动解决"
-            echo "冲突文件: $(git diff --name-only --diff-filter=U | tr '\n' ' ')"
-            echo "merge_status=conflict" >> $GITHUB_OUTPUT
-            exit 1
+            # 冲突时：www 目录跟随上游，恢复我们自定义的文件
+            echo "⚠️ 出现冲突，尝试自动解决..."
+            CONFLICTS=$(git diff --name-only --diff-filter=U 2>/dev/null)
+            echo "冲突文件: $CONFLICTS"
+            # 自动解决：所有冲突文件采用上游版本，然后恢复我们的自定义文件
+            for f in $CONFLICTS; do
+              case "$f" in
+                www/manifest.json|README.md|package.json|.gitignore)
+                  echo "保留本地版本: $f"
+                  git checkout --ours "$f"
+                  ;;
+                *)
+                  echo "采用上游版本: $f"
+                  git checkout --theirs "$f"
+                  ;;
+              esac
+              git add "$f"
+            done
+            git commit --no-edit
+            echo "✅ 冲突已自动解决"
+            echo "merge_status=ok" >> $GITHUB_OUTPUT
           fi
 
       - name: 重新生成依赖
